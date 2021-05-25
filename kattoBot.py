@@ -12,7 +12,7 @@ class KattoBotException(discord.ext.commands.errors.CommandError):
 
 class KattoBot(commands.Bot):
     def __init__(self):
-        load_dotenv("kattobotsandbox.env")
+        load_dotenv()
         self.token = os.getenv("DISCORD_TOKEN")
         self.guild_name = os.getenv("DISCORD_GUILD")
 
