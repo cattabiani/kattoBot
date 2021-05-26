@@ -39,7 +39,7 @@ def format_roll_ndm_successes(n, m):
         freq[m - i] += 1
 
     ps = list(itertools.accumulate(freq))
-    s = [f"vs {i}: {ps[m-i]}" for i in range(m, int(m / 2), -1)]
+    s = [f"vs {i}: {ps[m-i]-botches}" for i in range(m, int(m / 2), -1)]
     s = ", ".join(s)
 
     return f"[{n}d{m}: {r_s}]\n**Botches:** {botches}\n**Successes:** {s}"

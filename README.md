@@ -17,10 +17,21 @@ out how to find these parameters.
 
 ### Run
 
-Just call 
+Just call:
 
 ```bash
 python kattoBot.py
-``` 
+```
 
 in the main folder.
+
+### Tests
+
+To run the tests just call:
+
+```bash
+python -m pytest
+```                   
+
+in the main folder.
+
