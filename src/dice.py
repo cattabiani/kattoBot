@@ -4,6 +4,15 @@ import itertools
 
 
 def roll_ndm(n, m, critical_rerolls=False):
+    """Roll dice
+
+    Roll dice and get sorted results. Critical rerolls make the code reroll the die on max result (used in vamps).
+
+    Args:
+          n: number of dice to roll
+          m: number of faces of a die
+          critical_rerolls: flag that decides if we reroll the die on max result (critical)
+    """
     out = []
     i = 0
     while i < n:
@@ -14,6 +23,7 @@ def roll_ndm(n, m, critical_rerolls=False):
 
 
 def format_roll_result(v, m):
+    """ Pretty-print roll result """
     if v == 1:
         return "**~~1~~**"
     elif v == m:
@@ -23,12 +33,14 @@ def format_roll_result(v, m):
 
 
 def format_roll_ndm_sum(n, m):
+    """ Pretty-print ndm roll """
     l = roll_ndm(n, m, False)
     r_s = ", ".join([format_roll_result(i, m) for i in l])
     return f"[{n}d{m}: {r_s}] {sum(l)}"
 
 
 def format_roll_ndm_successes(n, m):
+    """ Pretty-print ndm roll with successes """
     l = roll_ndm(n, m, True)
 
     r_s = ", ".join([format_roll_result(i, m) for i in l])
@@ -46,6 +58,7 @@ def format_roll_ndm_successes(n, m):
 
 
 def roll(command):
+    """ Pretty-print full roll """
     command = re.sub(r"(?<!\[) (?![\w\s]*[\]])", "", command)
     command = re.sub(
         r"(?<!\[)(\d+)d(\d+)(?![\w\s]*[\]])",
