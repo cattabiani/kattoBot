@@ -3,40 +3,70 @@ import random
 import itertools
 
 
-def roll_ndm(n, m, critical_rerolls=False):
-    """Roll dice
+class Dice:
+    def __init__(self, base, reroll_criticals=False):
+        self.reroll_criticals = reroll_criticals
 
-    Roll dice and get sorted results. Critical rerolls make the code reroll the die on max result (used in vamps).
+        n, m = base.split("d")
+        self.n_dice = int(n)
+        self.m_faces = int(m)
 
-    Args:
-          n: number of dice to roll
-          m: number of faces of a die
-          critical_rerolls: flag that decides if we reroll the die on max result (critical)
-    """
-    out = []
-    freq = [0] * m
-    i = 0
-    while i < n:
-        v = random.randint(1, m)
-        out.append(v)
-        freq[v - 1] += 1
-        if not critical_rerolls or not out[-1] == m:
-            i += 1
+        self.result = []
+        self.successes_per_diff_level = []
+        self.botches = 0
+        self.roll(reroll_criticals)
 
-    freq.reverse()
-    dist = list(itertools.accumulate(freq))
+    def _format_die_result(self, v):
+        """ Pretty-print roll result """
+        if v == 1:
+            return "**~~1~~**"
+        elif v == self.m_faces:
+            return f"**{v}**"
+        else:
+            return str(v)
 
-    return sorted(out, reverse=True), dist
+    def __str__(self, base=False, add_sum=True):
+        if base:
+            return f"{self.n_dice}d{self.m_faces}"
+        else:
+            r_s = ", ".join([self._format_die_result(i) for i in self.result])
+            out = f"[{self.__str__(base=True)}: {r_s}]"
 
+            if add_sum:
+                out += f" {sum(self.result)}"
 
-def format_roll_result(v, m):
-    """ Pretty-print roll result """
-    if v == 1:
-        return "**~~1~~**"
-    elif v == m:
-        return f"**{m}**"
-    else:
-        return str(v)
+            return out
+
+    def roll(self, reroll_criticals=False):
+        """Roll dice
+
+        Roll dice and get sorted results. Critical rerolls make the code reroll the die on max result (used in vamps).
+
+        Args:
+              n: number of dice to roll
+              m: number of faces of a die
+              critical_rerolls: flag that decides if we reroll the die on max result (critical)
+        """
+
+        self.reroll_criticals = reroll_criticals
+        self.result = []
+        self.botches = 0
+        freq = [0] * self.m_faces
+        i = 0
+        while i < self.n_dice:
+            v = random.randint(1, self.m_faces)
+            self.result.append(v)
+            freq[v - 1] += 1
+            if v == 1:
+                self.botches += 1
+            if not self.reroll_criticals or not self.result[-1] == self.m_faces:
+                i += 1
+
+        freq.reverse()
+        self.successes_per_diff_level = [
+            i - self.botches for i in itertools.accumulate(freq)
+        ]
+        self.result = sorted(self.result, reverse=True)
 
 
 def roll(s, successes):
@@ -58,38 +88,34 @@ def roll(s, successes):
         if not re.match("\d+d\d+", i):
             c.append(i)
             continue
-        n, m = i.split("d")
-        m = int(m)
-        n = int(n)
-        m_max = max(m_max, m)
-        rolls, dist = roll_ndm(n, m, successes)
-        r_s = ", ".join([format_roll_result(i, m) for i in rolls])
-        p[idx] = f"[{n}d{m}: {r_s}]"
-        if not successes:
-            rolls_sum = sum(rolls)
-            p[idx] += f" {rolls_sum} "
-            c.append(str(rolls_sum))
-        else:
-            c.append(dist)
 
-    # compute botches and rolls for compute results
+        dd = Dice(i, successes)
+        m_max = max(m_max, dd.m_faces)
+        p[idx] = dd.__str__(base=False, add_sum=(not successes))
+        c.append(dd)
+
+    # compute full string
     res = []
-    botches = sum([i[-1] - i[-2] for i in c if isinstance(i, list)])
     if not successes:
-        res = [eval("".join(c))]
+        res = [
+            eval("".join([str(sum(i.result)) if isinstance(i, Dice) else i for i in c]))
+        ]
     else:
         for i in range(0, int((m_max + 1) / 2)):
             tbc = c.copy()
             for idx, j in enumerate(tbc):
-                if not isinstance(j, list):
+                if not isinstance(j, Dice):
                     continue
-                b = j[-1] - j[-2]
-                tbc[idx] = str(j[i] - b)
+                tbc[idx] = str(j.successes_per_diff_level[i])
             res.append(eval("".join(tbc)))
+
+    # n botches
+    botches = sum([i.botches for i in c if isinstance(i, Dice)])
 
     # formatting
     p = " ".join([i if i.startswith("[") else re.sub(" ", "", i) for i in p if i != ""])
     p = re.sub(r"(?<!\[)[+-](?![\w\s]*[\]])", lambda m: f" {m.group(0)} ", p)
+    p = re.sub(" +", " ", p)
     out = f"**Roll:**\n{p}\n**Result:** "
     if not successes:
         out += f"{res[0]}"

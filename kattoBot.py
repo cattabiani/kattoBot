@@ -2,8 +2,9 @@ import os
 from dotenv import load_dotenv
 from discord.ext import commands
 import discord
-from src import dice, game, utils
+from src import dice, game
 import ruamel.yaml
+import re
 
 
 class KattoBotException(discord.ext.commands.errors.CommandError):
@@ -31,6 +32,16 @@ class KattoBot(commands.Bot):
 
         self.game = game.Game()
         self.load_game()
+
+    @staticmethod
+    def _split_args_kwargs(l):
+        d = {}
+        for i in l:
+            if re.match("\w+:\w+", i):
+                k, v = i.split(":")
+                d[k] = v
+
+        return [i for i in l if not re.match("\w+:\w+", i)], d
 
     def _game_file_path(self, filepath):
         return f"{self.guild_name}_game.yaml" if not filepath else filepath
@@ -138,7 +149,7 @@ async def roll(ctx, *args):
                   [2d5: 2, 3] 5 + 3 [space for comments]
                   Result: 8
     """
-    args, kwargs = utils.split_args_kwargs(args)
+    args, kwargs = KattoBot._split_args_kwargs(args)
     cmd = " ".join(args)
     to = kwargs.get("to", None)
 
@@ -169,7 +180,7 @@ async def roll_successes(ctx, *args):
                   [2d5: 2, 3] 5 + 3 [space for comments]
                   Result: 8
     """
-    args, kwargs = utils.split_args_kwargs(args)
+    args, kwargs = KattoBot._split_args_kwargs(args)
     cmd = " ".join(args)
     to = kwargs.get("to", None)
 
