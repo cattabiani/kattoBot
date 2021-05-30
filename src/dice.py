@@ -14,12 +14,19 @@ def roll_ndm(n, m, critical_rerolls=False):
           critical_rerolls: flag that decides if we reroll the die on max result (critical)
     """
     out = []
+    freq = [0] * m
     i = 0
     while i < n:
-        out.append(random.randint(1, m))
+        v = random.randint(1, m)
+        out.append(v)
+        freq[v - 1] += 1
         if not critical_rerolls or not out[-1] == m:
             i += 1
-    return sorted(out, reverse=True)
+
+    freq.reverse()
+    dist = list(itertools.accumulate(freq))
+
+    return sorted(out, reverse=True), dist
 
 
 def format_roll_result(v, m):
@@ -32,44 +39,62 @@ def format_roll_result(v, m):
         return str(v)
 
 
-def format_roll_ndm_sum(n, m):
-    """ Pretty-print ndm roll """
-    l = roll_ndm(n, m, False)
-    r_s = ", ".join([format_roll_result(i, m) for i in l])
-    return f"[{n}d{m}: {r_s}] {sum(l)}"
+def roll(s, successes):
+    """Main roller
 
+    We get the results from roll_ndm, "add them up" and format results
+    """
 
-def format_roll_ndm_successes(n, m):
-    """ Pretty-print ndm roll with successes """
-    l = roll_ndm(n, m, True)
+    # Split in the printing list (p) and the computing list (c) so that stuff in [] is avoided and rolls are isolated
+    p = [i for i in re.split("(\[*[^\[\]]*\]|\d+d\d+)", s) if i != ""]
+    c = []
 
-    r_s = ", ".join([format_roll_result(i, m) for i in l])
-    botches = l.count(1)
+    # visit the printing list to compute rolls, create the computing list (c) and get m_max (could be useful for
+    # successes)
+    m_max = 0
+    for idx, i in enumerate(p):
+        if re.match("\[*[^\[\]]*\]", i):
+            continue
+        if not re.match("\d+d\d+", i):
+            c.append(i)
+            continue
+        n, m = i.split("d")
+        m = int(m)
+        n = int(n)
+        m_max = max(m_max, m)
+        rolls, dist = roll_ndm(n, m, successes)
+        r_s = ", ".join([format_roll_result(i, m) for i in rolls])
+        p[idx] = f"[{n}d{m}: {r_s}]"
+        if not successes:
+            rolls_sum = sum(rolls)
+            p[idx] += f" {rolls_sum} "
+            c.append(str(rolls_sum))
+        else:
+            c.append(dist)
 
-    freq = [0] * m
-    for i in l:
-        freq[m - i] += 1
+    # compute botches and rolls for compute results
+    res = []
+    botches = sum([i[-1] - i[-2] for i in c if isinstance(i, list)])
+    if not successes:
+        res = [eval("".join(c))]
+    else:
+        for i in range(0, int((m_max + 1) / 2)):
+            tbc = c.copy()
+            for idx, j in enumerate(tbc):
+                if not isinstance(j, list):
+                    continue
+                b = j[-1] - j[-2]
+                tbc[idx] = str(j[i] - b)
+            res.append(eval("".join(tbc)))
 
-    ps = list(itertools.accumulate(freq))
-    s = [f"vs {i}: {ps[m-i]-botches}" for i in range(m, int(m / 2), -1)]
-    s = ", ".join(s)
+    # formatting
+    p = " ".join([i if i.startswith("[") else re.sub(" ", "", i) for i in p if i != ""])
+    p = re.sub(r"(?<!\[)[+-](?![\w\s]*[\]])", lambda m: f" {m.group(0)} ", p)
+    out = f"**Roll:**\n{p}\n**Result:** "
+    if not successes:
+        out += f"{res[0]}"
+    else:
+        out += ", ".join([f"vs {m_max - idx}: {i}" for idx, i in enumerate(res)])
+        out += f"\n**Botches:** {botches}"
 
-    return f"[{n}d{m}: {r_s}]\n**Botches:** {botches}\n**Successes:** {s}"
-
-
-def roll(command):
-    """ Pretty-print full roll """
-    command = re.sub(r"(?<!\[) (?![\w\s]*[\]])", "", command)
-    command = re.sub(
-        r"(?<!\[)(\d+)d(\d+)(?![\w\s]*[\]])",
-        lambda m: format_roll_ndm_sum(int(m.group(1)), int(m.group(2))),
-        command,
-    )
-    to_compute = re.sub(r"\[[^\[\]]*\]", "", command)
-    command = re.sub(
-        r"(?<!\[)[+-](?![\w\s]*[\]])", lambda m: f" {m.group(0)} ", command
-    )
-
-    res = eval(to_compute)
-
-    return f"{command}\n**Result:** {res}"
+    return out
