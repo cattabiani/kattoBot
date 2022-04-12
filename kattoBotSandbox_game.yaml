@@ -1,0 +1,9 @@
+!Game
+dm:
+characters:
+  bau: !Character
+    name: Pippo
+    stats:
+      cha: 1d10
+      wis: '13'
+      int: 4d10

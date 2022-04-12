@@ -1,6 +1,6 @@
-import re
-import random
 import itertools
+import random
+import re
 
 
 class Dice:
@@ -13,7 +13,7 @@ class Dice:
 
         self.result = []
         self.successes_per_diff_level = []
-        self.botches = 0
+        self.freq = []
         self.roll(reroll_criticals)
 
     def _format_die_result(self, v):
@@ -26,6 +26,12 @@ class Dice:
             return str(v)
 
     def __str__(self, base=False, add_sum=True):
+        """Print the roll
+
+        Args:
+              base: it prints the base line like `3d10`
+              add_sum: it appends the sum fo the roll result sum at the end
+        """
         if base:
             return f"{self.n_dice}d{self.m_faces}"
         else:
@@ -50,21 +56,20 @@ class Dice:
 
         self.reroll_criticals = reroll_criticals
         self.result = []
-        self.botches = 0
-        freq = [0] * self.m_faces
+        self.freq = [0] * self.m_faces
         i = 0
         while i < self.n_dice:
             v = random.randint(1, self.m_faces)
             self.result.append(v)
-            freq[v - 1] += 1
-            if v == 1:
-                self.botches += 1
+            self.freq[v - 1] += 1
             if not self.reroll_criticals or not self.result[-1] == self.m_faces:
                 i += 1
 
-        freq.reverse()
+        self.freq.reverse()
+
         self.successes_per_diff_level = [
-            i - self.botches for i in itertools.accumulate(freq)
+            max(self.freq[0], i - self.freq[-1])
+            for i in itertools.accumulate(self.freq)
         ]
         self.result = sorted(self.result, reverse=True)
 
@@ -110,17 +115,17 @@ def roll(s, successes):
             res.append(eval("".join(tbc)))
 
     # n botches
-    botches = sum([i.botches for i in c if isinstance(i, Dice)])
+    botches = sum([i.freq[-1] for i in c if isinstance(i, Dice)])
 
     # formatting
     p = " ".join([i if i.startswith("[") else re.sub(" ", "", i) for i in p if i != ""])
     p = re.sub(r"(?<!\[)[+-](?![\w\s]*[\]])", lambda m: f" {m.group(0)} ", p)
     p = re.sub(" +", " ", p)
-    out = f"**Roll:**\n{p}\n**Result:** "
-    if not successes:
-        out += f"{res[0]}"
-    else:
-        out += ", ".join([f"vs {m_max - idx}: {i}" for idx, i in enumerate(res)])
+    out = f"**Roll:** {p} **Result:** {res[0]}\n"
+    if successes:
+        out += "**Successes:** " + ", ".join(
+            [f"vs {m_max - idx}: {i}" for idx, i in enumerate(res)]
+        )
         out += f"\n**Botches:** {botches}"
 
     return out
